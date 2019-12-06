@@ -1,0 +1,11 @@
+---
+     - block: 
+         - debug:
+             msg: "SLON" 
+       when: dxtoolkit == True
+
+
+     - block:
+          - debug:
+              msg: "Using script"
+       when: dxtoolkit == False

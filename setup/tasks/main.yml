@@ -1,0 +1,36 @@
+---
+
+          
+   - name: Include tests vars
+     include_vars: 
+        dir: vars
+        files_matching: 
+          - "tests_vars.yml"
+
+   - name: Include plugin specific vars 
+     include_vars: 
+        dir: vars
+        files_matching: 
+          - "{{ EDSI_TEMPLATE_NAME }}.yml"
+
+   - name: VDB Source config
+     set_fact: 
+        DELPHIX_VDB_SOURCECONFIG_PARAMETERS: 1
+     when: DELPHIX_VDB_TEMP_SC|length!=0 
+
+   - name: Create a tmp directory if it does not exist
+     file:
+        path: "{{ playbook_dir }}/tmp/"
+        state: directory
+        mode: '0755'
+
+   - name: create dxtoolkit configuration
+     template: src=dxtools.conf.j2 dest="{{ DXLOC }}/dxtools.conf" mode=755
+
+   - name: create dsource ingestion script
+     template: src=adddsource.j2 dest="{{ playbook_dir }}/tmp/adddsource.sh" mode=755
+     when: dxtoolkit == False
+
+   - name: create vdb provision  script
+     template: src=addvdb.j2 dest="{{ playbook_dir }}/tmp/addvdb.sh" mode=755
+     when: dxtoolkit == False

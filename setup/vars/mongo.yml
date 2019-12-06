@@ -1,0 +1,14 @@
+MONGO_SRC_PORT: 27101
+MONGO_SRC_HOST_NAME: "unixedsisrc2.example.com"
+MONGO_SRC_DBPATH: "/u01/mongodb/data101"
+MONGO_SRC_REPLICASET: "delphix_409rs"
+MONGO_SRC_USER: "clusteradmin"
+MONGO_SRC_PASSWORD: "******"
+
+MONGO_STG_HOST_NAME: "unixedsistg.example.com"
+MONGO_STG_KEYFILE: "/u01/mongodb/keyfile/mongodb-keyfile"
+
+MONGO_VDB_HOST_NAME: "unixedsitgt.example.com"
+MONGO_VDB_KEYFILE: "/u01/mongodb/keyfile/mongodb-keyfile"
+MONGO_VDB_USER: "clusteradmin"
+MONGO_VDB_PASSWORD: "******"

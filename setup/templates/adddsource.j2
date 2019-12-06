@@ -1,0 +1,123 @@
+#!/bin/bash
+
+# Input parameters are:
+# - dsource name
+
+API_MAJOR="{{ API_MAJOR }}"
+API_MINOR="{{ API_MINOR }}"
+API_MICRO="{{ API_MICRO }}"
+DELPHIX_ENGINE_IP="{{ DELPHIX_ENGINE_IP }}"
+DELPHIX_ADMIN_USER="{{ DELPHIX_ADMIN_USER }}"
+DELPHIX_ADMIN_PASSWORD="{{ DELPHIX_ADMIN_PASSWORD }}"
+
+# dsource name
+DELPHIX_DSOURCE_NAME="{{ DELPHIX_DSOURCE_NAME }}"
+DELPHIX_GROUP_NAME="{{ DELPHIX_DSOURCE_GROUP_NAME }}"
+
+# name of database added as dSource 
+# this is a sourceconfig name in Delphix
+DELPHIX_SRCCFG_NAME="{{ DELPHIX_SOURCE_DB_NAME }}"
+
+DELPHIX_STG_ENV_NAME="{{ DELPHIX_STG_ENV_NAME }}"
+DELPHIX_STG_ENVUSER_NAME="{{ DELPHIX_STG_ENVUSER_NAME }}"
+DELPHIX_STG_REPO_NAME="{{ DELPHIX_STG_REPO_NAME }}"
+DELPHIX_STG_MOUNTBASE="{{ DELPHIX_STG_MOUNTPOINT }}"
+
+#cd /home/delphix/OBI_TESTING
+curl -s -X POST -k --data @- http://$DELPHIX_ENGINE_IP/resources/json/delphix/session \
+    -c ~/cookies.txt -H "Content-Type: application/json" <<EOF
+{
+    "type": "APISession",
+    "version": {
+        "type": "APIVersion",
+        "major": $API_MAJOR,
+        "minor": $API_MINOR,
+        "micro": $API_MICRO
+    }
+}
+EOF
+echo
+
+curl -s -X POST -k --data @- http://$DELPHIX_ENGINE_IP/resources/json/delphix/login \
+    -b ~/cookies.txt -c ~/cookies.txt -H "Content-Type: application/json" <<EOF
+{
+    "type": "LoginRequest",
+    "username": "$DELPHIX_ADMIN_USER",
+    "password": "$DELPHIX_ADMIN_PASSWORD"
+}
+EOF
+echo
+
+# Get environment
+DELPHIX_STG_ENV_REF=`curl -s -X GET http://$DELPHIX_ENGINE_IP/resources/json/delphix/environment -b ~/cookies.txt -H "Content-Type: application/json"| \
+	jq -r --arg DELPHIX_STG_ENV_NAME "$DELPHIX_STG_ENV_NAME" '.result[]|select(.name==$DELPHIX_STG_ENV_NAME)|.reference'`
+
+
+# Get staging repository
+
+DELPHIX_STG_REPO_REF=`curl -s -X GET http://$DELPHIX_ENGINE_IP/resources/json/delphix/repository?environment=$DELPHIX_STG_ENV_REF -b ~/cookies.txt -H "Content-Type: application/json"| \
+	jq -r --arg DELPHIX_STG_REPO_NAME "$DELPHIX_STG_REPO_NAME" '.result[]|select(.name==$DELPHIX_STG_REPO_NAME)|.reference'`
+
+# Get env user reference
+DELPHIX_STG_ENVUSER_REF=`curl -s -X GET http://$DELPHIX_ENGINE_IP/resources/json/delphix/environment/user -b ~/cookies.txt -H "Content-Type: application/json"| \
+	jq -r --arg DELPHIX_STG_ENVUSER_NAME "$DELPHIX_STG_ENVUSER_NAME" --arg DELPHIX_STG_ENV_REF $DELPHIX_STG_ENV_REF '.result[]|select((.name==$DELPHIX_STG_ENVUSER_NAME) and (.environment==$DELPHIX_STG_ENV_REF))|.reference'`
+
+# Get sourceconfig
+DELPHIX_SRCCFG_REF=`curl -s -X GET http://$DELPHIX_ENGINE_IP/resources/json/delphix/sourceconfig -b ~/cookies.txt -H "Content-Type: application/json"| \
+	jq -r --arg DELPHIX_SRCCFG_NAME "$DELPHIX_SRCCFG_NAME" '.result[]|select(.name==$DELPHIX_SRCCFG_NAME)|.reference'`
+
+
+
+if [[ ! -z $DELPHIX_SRCCFG_REF ]]; then
+
+    # Delete SourceConfig if already exists
+    delreslt=`curl -s -X POST -k --data @- http://$DELPHIX_ENGINE_IP/resources/json/delphix/sourceconfig/${DELPHIX_SRCCFG_REF}/delete -b ~/cookies.txt -H "Content-Type: application/json" <<EOF
+    {}
+EOF`
+
+    if ( echo $delreslt | grep -i "ERROR" > /dev/null ); then
+        echo $delreslt
+        exit 1
+    fi
+
+fi
+
+# Create SourceConfig
+curl -s -X POST -k --data @- http://$DELPHIX_ENGINE_IP/resources/json/delphix/sourceconfig -b ~/cookies.txt -H "Content-Type: application/json" <<EOF
+{
+    "type": "AppDataStagedSourceConfig",
+    "name": "$DELPHIX_SRCCFG_NAME",
+    "environmentUser": "$DELPHIX_STG_ENVUSER_REF",
+    "repository": "$DELPHIX_STG_REPO_REF",
+    "parameters": {% include EDSI_TEMPLATE_NAME+ "_dsource_sourceconfig.j2" %}
+}
+EOF
+echo $?
+
+
+# Get group
+DELPHIX_GROUP_REF=`curl -s -X GET http://$DELPHIX_ENGINE_IP/resources/json/delphix/group -b ~/cookies.txt -H "Content-Type: application/json"| \
+	jq -r --arg DELPHIX_GROUP_NAME "$DELPHIX_GROUP_NAME" '.result[]|select(.name==$DELPHIX_GROUP_NAME)|.reference'`
+
+# Get sourceconfig
+DELPHIX_SRCCFG_REF=`curl -s -X GET http://$DELPHIX_ENGINE_IP/resources/json/delphix/sourceconfig -b ~/cookies.txt -H "Content-Type: application/json"| \
+	jq -r --arg DELPHIX_SRCCFG_NAME "$DELPHIX_SRCCFG_NAME" '.result[]|select(.name==$DELPHIX_SRCCFG_NAME)|.reference'`
+
+curl -s -X POST -k --data @- http://$DELPHIX_ENGINE_IP/resources/json/delphix/database/link -b ~/cookies.txt -H "Content-Type: application/json" <<EOF
+{
+        "type": "LinkParameters",
+        "name": "$DELPHIX_DSOURCE_NAME",
+        "group": "$DELPHIX_GROUP_REF",
+        "linkData": {
+  		 	"type": "AppDataStagedLinkData"
+  			,"config": "$DELPHIX_SRCCFG_REF"
+  			,"environmentUser": "$DELPHIX_STG_ENVUSER_REF"
+            ,"parameters": {% include EDSI_TEMPLATE_NAME + "_dsource_parameters.j2" %}
+  			,"stagingEnvironment": "$DELPHIX_STG_ENV_REF"
+  			,"stagingEnvironmentUser": "$DELPHIX_STG_ENVUSER_REF"
+            {% if EDSI_TEMPLATE_NAME != 'mongo' and EDSI_TEMPLATE_NAME != 'couchbase' %}
+            ,"stagingMountBase": "$DELPHIX_STG_MOUNTBASE"
+            {% endif %}
+  		}
+}
+EOF

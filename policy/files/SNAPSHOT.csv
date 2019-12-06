@@ -1,0 +1,2 @@
+#Appliance,Group,Database,Snapshot,Snapshot schedule
+testengine, ,oratest,Default Snapshot,Sun 06:30,Mon 06:30,Tue 06:30,Wed 11:30,Thu 06:30,Fri 06:30,Sat 06:30

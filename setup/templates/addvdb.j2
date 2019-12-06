@@ -1,0 +1,123 @@
+#!/bin/bash
+
+
+# Input parameters
+# - vdb name
+# - dsource name
+
+API_MAJOR="{{ API_MAJOR }}"
+API_MINOR="{{ API_MINOR }}"
+API_MICRO="{{ API_MICRO }}"
+DELPHIX_ENGINE_IP="{{ DELPHIX_ENGINE_IP }}"
+DELPHIX_ADMIN_USER="{{ DELPHIX_ADMIN_USER }}"
+DELPHIX_ADMIN_PASSWORD="{{ DELPHIX_ADMIN_PASSWORD }}"
+
+DELPHIX_VDB_NAME={{ DELPHIX_VDB_NAME }}
+DSOURCE_NAME={{ DELPHIX_SRC_DB_NAME }}
+
+DELPHIX_GROUP_NAME="{{ DELPHIX_VDB_GROUP_NAME }}"
+DELPHIX_ENV_NAME="{{ DELPHIX_TARGET_ENV_NAME }}"
+DELPHIX_ENVUSER_NAME="{{ DELPHIX_TARGET_ENVUSER_NAME }}"
+DELPHIX_VDB_MOUNTPOINT="{{ DELPHIX_VDB_MOUNTPOINT }}"
+VDB_REPO_NAME="{{ DELPHIX_VDB_REPO_NAME }}"
+
+
+curl -s -X POST -k --data @- http://$DELPHIX_ENGINE_IP/resources/json/delphix/session \
+    -c ~/cookies.txt -H "Content-Type: application/json" <<EOF
+{
+    "type": "APISession",
+    "version": {
+        "type": "APIVersion",
+        "major": $API_MAJOR,
+        "minor": $API_MINOR,
+        "micro": $API_MICRO
+    }
+}
+EOF
+echo
+
+curl -s -X POST -k --data @- http://$DELPHIX_ENGINE_IP/resources/json/delphix/login \
+    -b ~/cookies.txt -c ~/cookies.txt -H "Content-Type: application/json" <<EOF
+{
+    "type": "LoginRequest",
+    "username": "$DELPHIX_ADMIN_USER",
+    "password": "$DELPHIX_ADMIN_PASSWORD"
+}
+EOF
+echo
+
+# Get group
+DELPHIX_GROUP=`curl -s -X GET http://$DELPHIX_ENGINE_IP/resources/json/delphix/group -b ~/cookies.txt -H "Content-Type: application/json"| \
+	jq -r --arg DELPHIX_GROUP_NAME "$DELPHIX_GROUP_NAME" '.result[]|select(.name==$DELPHIX_GROUP_NAME)|.reference'`
+
+# Get environment
+DELPHIX_TGT_ENV=`curl -s -X GET http://$DELPHIX_ENGINE_IP/resources/json/delphix/environment -b ~/cookies.txt -H "Content-Type: application/json"| \
+	jq -r --arg DELPHIX_ENV_NAME "$DELPHIX_ENV_NAME" '.result[]|select(.name==$DELPHIX_ENV_NAME)|.reference'`
+
+# Get env user reference
+DELPHIX_ENVUSER_REF=`curl -s -X GET http://$DELPHIX_ENGINE_IP/resources/json/delphix/environment/user -b ~/cookies.txt -H "Content-Type: application/json"| \
+	jq -r --arg DELPHIX_ENVUSER_NAME "$DELPHIX_ENVUSER_NAME" --arg DELPHIX_TGT_ENV $DELPHIX_TGT_ENV '.result[]|select((.name==$DELPHIX_ENVUSER_NAME) and (.environment==$DELPHIX_TGT_ENV))|.reference'`
+
+# Get Repository Reference
+DELPHIX_REPOSITORY_REF=`curl -s -X GET http://$DELPHIX_ENGINE_IP/resources/json/delphix/repository -b ~/cookies.txt -H "Content-Type: application/json"| \
+    jq -r --arg VDB_REPO_NAME "$VDB_REPO_NAME" --arg DELPHIX_TGT_ENV "$DELPHIX_TGT_ENV" '.result[]|select((.type=="AppDataRepository") and (.name==$VDB_REPO_NAME) and (.environment==$DELPHIX_TGT_ENV))|.reference'`
+
+# Get Source Container Reference
+DELPHIX_DSOURCE_REF=`curl -s -X GET http://$DELPHIX_ENGINE_IP/resources/json/delphix/database -b ~/cookies.txt -H "Content-Type: application/json"| \
+    jq -r --arg SRC_CONTAINER_NAME "$DSOURCE_NAME" '.result[]|select(.type=="AppDataContainer" and .name==$SRC_CONTAINER_NAME)|.reference'`
+
+echo
+curl -s -X POST -k --data @- http://$DELPHIX_ENGINE_IP/resources/json/delphix/database/provision -b ~/cookies.txt -H "Content-Type: application/json" <<EOF
+{
+	"type":"AppDataProvisionParameters",
+    "container": {
+        "type": "AppDataContainer",
+        "name": "$DELPHIX_VDB_NAME",
+        "group": "$DELPHIX_GROUP",
+        "sourcingPolicy": {
+            "type": "SourcingPolicy",
+            "logsyncEnabled": false
+        }
+    },
+    "source":{
+		"operations":{
+			"configureClone":[],
+			"postRefresh":[],
+			"postRollback":[],
+			"postSnapshot":[],
+			"preRefresh":[],
+			"preRollback":[],
+			"preSnapshot":[],
+			"preStart":[],
+			"postStart":[],
+			"preStop":[],
+			"postStop":[],
+			"type":"VirtualSourceOperations"
+		},
+        "parameters": {% include EDSI_TEMPLATE_NAME + "_vdb_source_parameters.j2" %},
+		"additionalMountPoints":[],
+		"allowAutoVDBRestartOnHostReboot":false,
+		"name":"$DELPHIX_VDB_NAME",
+		"type":"AppDataVirtualSource"
+    },
+    "sourceConfig": {
+        "type": "AppDataDirectSourceConfig"
+        ,"name": "$DELPHIX_VDB_NAME"
+        ,"repository": "$DELPHIX_REPOSITORY_REF"
+        {% if EDSI_TEMPLATE_NAME != 'mongo' and EDSI_TEMPLATE_NAME != 'couchbase' %}
+        ,"path": "$DELPHIX_VDB_MOUNTPOINT"
+        {% endif %}
+        ,"linkingEnabled": true
+        ,"environmentUser": "$DELPHIX_ENVUSER_REF"
+        {% if DELPHIX_VDB_SOURCECONFIG_PARAMETERS is defined  %}
+        ,"parameters": {% include EDSI_TEMPLATE_NAME + "_vdb_sourceconfig_parameters.j2" %}
+        {% endif %}
+    },
+    "timeflowPointParameters": {
+        "type": "TimeflowPointSemantic",
+		"container": "$DELPHIX_DSOURCE_REF",
+        "location": "LATEST_POINT"
+    }
+}
+EOF
+echo

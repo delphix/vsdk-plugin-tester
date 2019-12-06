@@ -1,0 +1,4 @@
+#Appliance,Group,Database,Retention,Retention schedule
+testengine, ,carmel,* Default Retention,Logs 7 week(s), snapshots 8 week(s)
+testengine, ,marina,* Default Retention,Logs 7 week(s), snapshots 8 week(s)
+testengine, ,PDBX1,* Default Retention,Logs 7 week(s), snapshots 8 week(s)

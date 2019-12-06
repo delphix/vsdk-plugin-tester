@@ -1,0 +1,94 @@
+---
+   - block:
+        - name: Check if VDB exists and it's running
+          delegate_to: 127.0.0.1
+          shell: |
+             STATUS=`"{{ DXLOC }}/dx_get_db_env" -name "{{ item.vdb }}" -format csv -nohead | awk -F',' '{print $9};'`
+             if [ "${STATUS}" != "RUNNING" ]; then
+               exit 1;
+             fi;
+          retries: 10
+          register: dbstatus
+          delay: 5
+          until: dbstatus.rc == 0
+          loop: "{{ VDBDSOURCE_LIST }}"
+
+        - name: take snapshots
+          delegate_to: 127.0.0.1
+          shell: |
+            sleep 60
+            "{{ DXLOC }}/dx_snapshot_db" -name "{{ item[0].vdb }}"
+          with_nested:
+              - "{{ VDBDSOURCE_LIST }}"
+              - "{{ lookup('sequence','start=1 end=3', wantlist=True) }}"
+
+        - name: delete bookmark (not JS)
+          delegate_to: 127.0.0.1
+          shell: "{{ DXLOC }}/dx_ctl_bookmarks -name bookmarktest_{{ item.vdb }} -action delete"
+          ignore_errors: yes
+          loop: "{{ VDBDSOURCE_LIST }}"
+          tags: bookmarks
+
+        - name: create bookmark (not JS)
+          delegate_to: 127.0.0.1
+          shell: "{{ DXLOC }}/dx_ctl_bookmarks -name bookmarktest_{{ item.vdb }} -action create -dbname {{ item.vdb }} -timestamp latest"
+          loop: "{{ VDBDSOURCE_LIST }}"
+          tags: bookmarks
+
+        - name: Get dSource snapshot time
+          delegate_to: 127.0.0.1
+          shell: |
+             SNAPSHOT_TIME=`{{ DXLOC }}/dx_get_snapshots -name {{ item.dsource }} -format csv -nohead | tail -1 | awk -F',' '{print $5};'`
+             echo ${SNAPSHOT_TIME} | cut -b1-16
+          register: snapshot
+          loop: "{{ VDBDSOURCE_LIST }}"
+          tags: snapshot
+
+
+        - name: refresh a VDB
+          delegate_to: 127.0.0.1
+          shell: "{{ DXLOC }}/dx_refresh_db -name \"{{ item.item.vdb }}\" -timestamp \"{{ item.stdout }}\""
+          with_items: "{{ snapshot.results }}"
+          tags: snapshot
+
+        - name: rewind a VDB to bookmark
+          delegate_to: 127.0.0.1
+          shell: "{{ DXLOC }}/dx_rewind_db -name {{ item.vdb }} -timestamp bookmarktest_{{ item.vdb }}"
+          loop: "{{ VDBDSOURCE_LIST }}"
+
+        - name: Get VDB snapshot time
+          delegate_to: 127.0.0.1
+          shell: |
+             SNAPSHOT_TIME=`"{{ DXLOC }}/dx_get_snapshots" -name "{{ item.vdb }}" -format csv -nohead | tail -1 | awk -F',' '{print $5};'`
+             echo ${SNAPSHOT_TIME} | cut -b1-16
+          register: vdbsnapshot
+          loop: "{{ VDBDSOURCE_LIST }}"
+          tags: rewind
+
+
+        - name: rewind a VDB to snapshot time
+          delegate_to: 127.0.0.1
+          shell: "{{ DXLOC }}/dx_rewind_db -name {{ item.item.vdb }} -timestamp \"{{ item.stdout }}\""
+          with_items: "{{ vdbsnapshot.results }}"
+          tags: rewind
+
+        - name: Get dSource snapshot name
+          delegate_to: 127.0.0.1
+          shell: |
+             SNAPSHOT_NAME=`"{{ DXLOC }}/dx_get_snapshots" -name "{{ item.dsource }}" -format csv -nohead | tail -1 | awk -F',' '{print $4};'`
+             echo ${SNAPSHOT_NAME}
+          register: snapshotname
+          loop: "{{ VDBDSOURCE_LIST }}"
+
+        - name: refresh a VDB using snapshot name
+          delegate_to: 127.0.0.1
+          shell: "{{ DXLOC }}/dx_refresh_db -name {{ item.item.vdb }} -timestamp {{ item.stdout }}"
+          with_items: "{{ snapshotname.results }}"
+
+     when: dxtoolkit == True
+
+   - block:
+        - name:
+          delegate_to: 127.0.0.1
+          shell: "{{ role_path }}/files/snapshot.sh"
+     when: dxtoolkit == False

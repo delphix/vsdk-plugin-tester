@@ -1,0 +1,13 @@
+{
+      "dSourceType":"Staging",
+      "mongoHost":"{{ MONGO_STG_HOST_NAME }}",
+      "mongoPort": {{ DELPHIX_STG_PORT }},
+      "bindIP":"0.0.0.0",
+      "keyfilePath":"{{ MONGO_STG_KEYFILE }}",
+      "storageEngine":"wiredTiger",
+      "oplogSize":1024,
+      "journalInterval":30,
+      "mountPath":"{{ DELPHIX_STG_MOUNTPOINT }}",
+      "mongoDBUser":"{{ MONGO_SRC_USER }}",
+      "mongoDBPassword":"{{ MONGO_SRC_PASSWORD }}"
+}

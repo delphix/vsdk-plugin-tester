@@ -1,0 +1,7 @@
+# provision a VDB from the existing VDB and refresh
+# NOT EDIT BELOW
+
+DELPHIX_VDB_TEMP_SC: "{{ lookup('template','{{ EDSI_TEMPLATE_NAME }}_vdb_sourceconfig_parameters.j2') }}"
+VDBDSOURCE_LIST: [ {"dsource": "{{ DELPHIX_DSOURCE_NAME }}", "vdb": "{{ DELPHIX_VDB_NAME }}"} ]
+DELPHIX_SELFSERVICE_SOURCE: "{{ VDBDSOURCE_LIST[0].dsource }}"
+DELPHIX_SELFSERVICE_TARGET: "{{ VDBDSOURCE_LIST[0].vdb }}"

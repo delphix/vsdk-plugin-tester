@@ -1,0 +1,10 @@
+---
+ - hosts: localhost
+   connection: local
+
+   roles:
+       - setup
+       - dSource
+       - vdb
+       - snapshot_tests
+       - selfservice

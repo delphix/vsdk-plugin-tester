@@ -1,0 +1,4 @@
+#Appliance,Group,Database,Snapsync,Snapsync schedule
+testengine, ,carmel,N/A,N/A
+testengine, ,marina,* Default SnapSync,Sun 06:00,Mon 06:00,Tue 09:00,Wed 06:00,Thu 06:00,Fri 06:00,Sat 06:00
+testengine, ,PDBX1,* Default SnapSync,Sun 06:00,Mon 06:00,Tue 09:00,Wed 06:00,Thu 06:00,Fri 06:00,Sat 06:00

@@ -1,0 +1,35 @@
+---
+
+    - name: Get all policies for all objects
+      delegate_to: 127.0.0.1
+      shell: '"{{ DXLOC }}/dx_get_policy" -policy {{ item }}'
+      register: output
+      failed_when: "'uninitialized' in output.stderr"
+      loop:
+        - "SNAPSYNC"
+        - "RETENTION"
+        - "SNAPSHOT"
+        - "REFRESH"
+
+    - name: Update policies from directory
+      delegate_to: 127.0.0.1
+      shell: '"{{ DXLOC }}/dx_ctl_policy" -update -indir {{ role_path }}/files/'
+
+    - name: Get updated polices into files
+      delegate_to: 127.0.0.1
+      shell: '"{{ DXLOC }}/dx_get_policy" -policy {{ item.policy }} {{ item.filter}} -format csv > /tmp/{{ item.policy}}.csv'
+      register: output
+      failed_when: "'uninitialized' in output.stderr"
+      loop:
+        - {"policy": "SNAPSYNC", "filter": "-group Sources" }
+        - {"policy": "RETENTION", "filter": "-group Sources" }
+        - {"policy": "SNAPSHOT", "filter": "-name oratest" }
+
+    - name: Compare files
+      delegate_to: 127.0.0.1
+      shell: 'diff /tmp/{{ item }}.csv {{ role_path }}/files/{{ item }}.csv'
+      loop:
+        - "SNAPSYNC"
+        - "RETENTION"
+        - "SNAPSHOT"
+      tags: check

@@ -1,0 +1,115 @@
+---
+
+   - name: Check engine
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_get_appliance"'
+
+   - name: Check if VDB exists
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_get_db_env" -name "{{ item.vdb }}" > /dev/null'
+     register: dbcheck
+     ignore_errors: yes
+     tags: deletevdb
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+   - name: Delete VDB
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_remove_db" -name "{{ item.item.vdb }}" -skip'
+     register: dbremove
+     ignore_errors: yes
+     when: (CREATE_DSOURCE == True and item.rc == 0)
+     with_items: "{{ dbcheck.results }}"
+     tags: deletevdb
+
+   - name: Delete VDB with force option
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_remove_db" -name "{{ item.item.item.vdb }}" -skip -force'
+     when: (CREATE_DSOURCE == True and item.changed == True and item.rc != 0 )
+     with_items: "{{ dbremove.results }}"
+     tags: deletevdb
+
+   - name: Check if DSOURCE exists
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_get_db_env" -name "{{ item.dsource }}" > /dev/null'
+     register: dsourcecheck
+     ignore_errors: yes
+     loop: "{{ VDBDSOURCE_LIST }}"
+     when: CREATE_DSOURCE == True
+
+   - name: Delete dSource
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_remove_db" -name "{{ item.item.dsource }}" -skip -force'
+     when: (CREATE_DSOURCE == True and item.rc == 0)
+     loop: "{{ dsourcecheck.results }}"
+
+   - block:
+        # - name: register time
+        #   set_fact: time="{{ ansible_date_time.date + \" \" + ansible_date_time.time }}"
+
+        - name: get engine time
+          delegate_to: 127.0.0.1
+          shell: '"{{ DXLOC }}/dx_get_engine_time"'
+          register: output_engine_time
+
+        - name: register time
+          set_fact: time={{ output_engine_time.stdout }}
+
+        - name: Add dSource (shell)
+          delegate_to: 127.0.0.1
+          shell: "{{ playbook_dir }}/tmp/adddsource.sh {{ item.dsource }}"
+          loop: "{{ VDBDSOURCE_LIST }}"
+
+        - name: Check for job
+          delegate_to: 127.0.0.1
+          shell: |
+             STATUS=`"{{ DXLOC }}/dx_get_jobs" -dbname "{{ item.dsource }}" -format csv -nohead -state COMPLETED -st "{{ time }}"`
+             if [ $? !=  0 ]; then
+                echo $STATUS;
+                exit 1;
+             fi
+             STATUSNO=`echo $STATUS | grep -v "Object not found" | wc -l`
+             if [ "${STATUSNO}" = "0" ]; then
+                exit 1;
+             fi;
+          loop: "{{ VDBDSOURCE_LIST }}"
+          register: cfjresult
+          failed_when: (cfjresult.rc != 0) or (cfjresult.stderr != "")
+
+        - name: Wait for job
+          delegate_to: 127.0.0.1
+          shell: |
+             STATUS=`"{{ DXLOC }}/dx_get_jobs" -dbname "{{ item.dsource }}" -format csv -nohead -state COMPLETED -st "{{ time }}" | wc -l`
+             if [ ${STATUS} -ne 2 ]; then
+               exit 1;
+             fi;
+          retries: 18
+          register: jobstatus
+          delay: 10
+          until: jobstatus.rc == 0
+          loop: "{{ VDBDSOURCE_LIST }}"
+
+     when: (CREATE_DSOURCE == True and dxtoolkit == False)
+     tags: create
+
+   - block:
+        - name: Add dSource (dxtoolkit)
+          delegate_to: 127.0.0.1
+          shell: "{{ DXLOC }}/dx_ctl_dsource -action add"
+     when: (CREATE_DSOURCE == True and dxtoolkit == True)
+
+   - name:  snapshot a dSources
+     delegate_to: 127.0.0.1
+     shell: |
+       sleep 60
+       "{{ DXLOC }}/dx_snapshot_db" -name "{{ item.dsource }}"
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+   - name:  disable dSource
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_ctl_db" -name "{{ item.dsource }}" -action disable'
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+   - name:  enable dSource
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_ctl_db" -name "{{ item.dsource }}" -action enable'
+     loop: "{{ VDBDSOURCE_LIST }}"

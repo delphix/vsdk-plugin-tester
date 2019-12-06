@@ -1,0 +1,11 @@
+{
+      "mountPath": "{{ DELPHIX_VDB_MOUNTPOINT }}",
+      "journalInterval": 30,
+      "mongoPort": {{ DELPHIX_VDB_PORT }},
+      "oplogSize": 1024,
+      "mongoDBUser": "{{ MONGO_VDB_USER }}",
+      "mongoDBPassword": "{{ MONGO_VDB_PASSWORD }}",
+      "enableKeyAuth": "N",
+      "keyfilePath": "{{ MONGO_VDB_KEYFILE }}",
+      "bindIP": "0.0.0.0"
+}

@@ -1,0 +1,52 @@
+{
+   "reference" : "POLICY_SYNC-2",
+   "customized" : false,
+   "scheduleList" : [
+      {
+         "cutoffTime" : 14400,
+         "type" : "Schedule",
+         "cronString" : "0 0 6 ? * 1"
+      },
+      {
+         "cronString" : "0 0 6 ? * 2",
+         "cutoffTime" : 14400,
+         "type" : "Schedule"
+      },
+      {
+         "cronString" : "0 0 9 ? * 3",
+         "type" : "Schedule",
+         "cutoffTime" : 14400
+      },
+      {
+         "cronString" : "0 0 6 ? * 4",
+         "type" : "Schedule",
+         "cutoffTime" : 14400
+      },
+      {
+         "type" : "Schedule",
+         "cutoffTime" : 14400,
+         "cronString" : "0 0 6 ? * 5"
+      },
+      {
+         "cronString" : "0 0 6 ? * 6",
+         "type" : "Schedule",
+         "cutoffTime" : 14400
+      },
+      {
+         "cronString" : "0 0 6 ? * 7",
+         "cutoffTime" : 14400,
+         "type" : "Schedule"
+      }
+   ],
+   "effectiveType" : "DIRECT_APPLIED",
+   "name" : "Default SnapSync",
+   "type" : "SyncPolicy",
+   "namespace" : null,
+   "default" : true,
+   "timezone" : {
+      "offset" : -120,
+      "offsetString" : "UTC +02:00",
+      "id" : "Europe/Rome",
+      "type" : "TimeZone"
+   }
+}

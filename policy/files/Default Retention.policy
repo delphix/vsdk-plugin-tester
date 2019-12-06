@@ -1,0 +1,20 @@
+{
+   "numOfDaily" : 0,
+   "dataDuration" : 8,
+   "dayOfMonth" : 1,
+   "reference" : "POLICY_RETENTION-1",
+   "dataUnit" : "WEEK",
+   "dayOfYear" : "Jan 1",
+   "logUnit" : "WEEK",
+   "numOfMonthly" : 0,
+   "effectiveType" : "DIRECT_APPLIED",
+   "dayOfWeek" : "MONDAY",
+   "name" : "Default Retention",
+   "logDuration" : 7,
+   "type" : "RetentionPolicy",
+   "namespace" : null,
+   "default" : true,
+   "numOfWeekly" : 0,
+   "numOfYearly" : 0,
+   "customized" : false
+}

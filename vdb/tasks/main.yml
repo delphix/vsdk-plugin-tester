@@ -1,0 +1,155 @@
+---
+
+   - name: Check engine
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_get_appliance"'
+
+   - name: Check if VDB exists
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_get_db_env" -name "{{ item.vdb }}" > /dev/null'
+     register: dbcheck
+     ignore_errors: yes
+     tags: deletevdb
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+   - name: Delete VDB
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_remove_db" -name "{{ item.item.vdb }}" -skip'
+     register: dbremove
+     ignore_errors: yes
+     when: (item.rc == 0 and CREATE_VDB == True)
+     with_items: "{{ dbcheck.results }}"
+     tags: deletevdb
+
+   - name: Delete VDB with force option
+     delegate_to: 127.0.0.1
+     shell: '"{{ DXLOC }}/dx_remove_db" -name "{{ item.item.item.vdb }}" -skip -force'
+     when: (CREATE_VDB == True and item.changed == True and item.rc != 0 )
+     with_items: "{{ dbremove.results }}"
+     tags: deletevdb
+
+   - block:
+        - name: get engine time
+          delegate_to: 127.0.0.1
+          shell: '"{{ DXLOC }}/dx_get_engine_time"'
+          register: output_engine_time
+
+        - name: register time
+          set_fact: time={{ output_engine_time.stdout }}
+
+        - name: Provision a VDB (shell)
+          delegate_to: 127.0.0.1
+          shell: "{{ playbook_dir }}/tmp/addvdb.sh {{ item.vdb }} {{ item.dsource }}"
+          loop: "{{ VDBDSOURCE_LIST }}"
+
+        - name: Wait for job
+          delegate_to: 127.0.0.1
+          shell: |
+             STATUS=`"{{ DXLOC }}/dx_get_jobs" -dbname "{{ item.vdb }}" -format csv -nohead -state COMPLETED -st "{{ time }}" | wc -l`
+             echo $STATUS
+             if [ "${STATUS}" != "2" ]; then
+               exit 1;
+             fi;
+          retries: 18
+          register: jobstatus
+          delay: 10
+          until: jobstatus.rc == 0
+          loop: "{{ VDBDSOURCE_LIST }}"
+
+     when: (CREATE_VDB == True and dxtoolkit == False)
+
+   - block:
+        - name: Provision a VDB (dxtoolkit)
+          delegate_to: 127.0.0.1
+          shell: "{{ DXLOC }}/dx_provision_db "
+     when: (CREATE_VDB == True and dxtoolkit == True)
+
+   - name: Check if VDB exists and it's running
+     delegate_to: 127.0.0.1
+     shell: |
+        STATUS=`"{{ DXLOC }}/dx_get_db_env" -name {{ item.vdb }} -format csv -nohead | awk -F',' '{print $9};'`
+        if [ "${STATUS}" != "RUNNING" ]; then
+          exit 1;
+        fi;
+     retries: 60
+     register: dbstatus
+     delay:  5
+     until: " dbstatus.rc == 0 "
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+   - name: Stop VDB
+     delegate_to: 127.0.0.1
+     shell: "{{ DXLOC }}/dx_ctl_db -action stop -name {{ item.vdb }}"
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+   - name: Check if VDB is stopped
+     delegate_to: 127.0.0.1
+     shell: |
+        STATUS=`"{{ DXLOC }}/dx_get_db_env" -name {{ item.vdb }} -format csv -nohead | awk -F',' '{print $9};'`
+        if [ "${STATUS}" != "INACTIVE" ]; then
+          exit 1;
+        fi;
+     retries: 60
+     register: dbstatus
+     delay: 5
+     until: dbstatus.rc == 0
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+   - name: Start VDB
+     delegate_to: 127.0.0.1
+     shell: "{{ DXLOC }}/dx_ctl_db -action start -name {{ item.vdb }}"
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+   - name: Check if VDB is started
+     delegate_to: 127.0.0.1
+     shell: |
+        STATUS=`"{{ DXLOC }}/dx_get_db_env" -name {{ item.vdb }} -format csv -nohead | awk -F',' '{print $9};'`
+        if [ "${STATUS}" != "RUNNING" ]; then
+          exit 1;
+        fi;
+     retries: 60
+     register: dbstatus
+     delay: 5
+     until: dbstatus.rc == 0
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+
+   - name: Disable VDB
+     delegate_to: 127.0.0.1
+     shell: "{{ DXLOC }}/dx_ctl_db -action disable -name {{ item.vdb }}"
+     tags: disable
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+   - name: Check if VDB is disabled
+     delegate_to: 127.0.0.1
+     shell: |
+        STATUS=`"{{ DXLOC }}/dx_get_db_env" -name {{ item.vdb }} -format csv -nohead | awk -F',' '{print $10};'`
+        if [ "${STATUS}" != "disabled" ]; then
+          exit 1;
+        fi;
+     retries: 60
+     register: dbstatus
+     delay: 5
+     until: dbstatus.rc == 0
+     tags: disable
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+   - name: Enable VDB
+     delegate_to: 127.0.0.1
+     shell: "{{ DXLOC }}/dx_ctl_db -action enable -name {{ item.vdb }}"
+     tags: enable
+     loop: "{{ VDBDSOURCE_LIST }}"
+
+   - name: Check if VDB is enabled
+     delegate_to: 127.0.0.1
+     shell: |
+        STATUS=`"{{ DXLOC }}/dx_get_db_env" -name {{ item.vdb }} -format csv -nohead | awk -F',' '{print $10};'`
+        if [ "${STATUS}" != "enabled" ]; then
+          exit 1;
+        fi;
+     retries: 60
+     register: dbstatus
+     delay: 5
+     until: dbstatus.rc == 0
+     tags: enable
+     loop: "{{ VDBDSOURCE_LIST }}"

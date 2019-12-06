@@ -1,0 +1,52 @@
+{
+   "effectiveType" : "DIRECT_APPLIED",
+   "name" : "Default Snapshot",
+   "type" : "SnapshotPolicy",
+   "namespace" : null,
+   "default" : true,
+   "timezone" : {
+      "offset" : -120,
+      "offsetString" : "UTC +02:00",
+      "id" : "Europe/Rome",
+      "type" : "TimeZone"
+   },
+   "reference" : "POLICY_SNAPSHOT-3",
+   "customized" : false,
+   "scheduleList" : [
+      {
+         "cutoffTime" : 14400,
+         "type" : "Schedule",
+         "cronString" : "0 30 6 ? * 1"
+      },
+      {
+         "cronString" : "0 30 6 ? * 2",
+         "cutoffTime" : 14400,
+         "type" : "Schedule"
+      },
+      {
+         "cutoffTime" : 14400,
+         "type" : "Schedule",
+         "cronString" : "0 30 6 ? * 3"
+      },
+      {
+         "type" : "Schedule",
+         "cutoffTime" : 14400,
+         "cronString" : "0 30 11 ? * 4"
+      },
+      {
+         "cronString" : "0 30 6 ? * 5",
+         "type" : "Schedule",
+         "cutoffTime" : 14400
+      },
+      {
+         "cronString" : "0 30 6 ? * 6",
+         "cutoffTime" : 14400,
+         "type" : "Schedule"
+      },
+      {
+         "cronString" : "0 30 6 ? * 7",
+         "type" : "Schedule",
+         "cutoffTime" : 14400
+      }
+   ]
+}
