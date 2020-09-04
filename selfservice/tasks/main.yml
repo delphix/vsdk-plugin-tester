@@ -107,7 +107,7 @@
     - name: Check timeflows - do we have 3 restores
       delegate_to: 127.0.0.1
       shell: |
-         STATUS=`"{{ DXLOC }}/dx_get_js_snapshots" -format csv | grep RESTORE | wc -l`
+         STATUS=`"{{ DXLOC }}/dx_get_js_snapshots" -format csv | grep RESTORE | wc -l|tr -d ' '`
          if [ "${STATUS}" != "3" ]; then
            exit 1;
          fi;
@@ -116,7 +116,7 @@
     - name: Check timeflows - do we have 1 refresh
       delegate_to: 127.0.0.1
       shell: |
-         STATUS=`"{{ DXLOC }}/dx_get_js_snapshots" -format csv | grep REFRESH | wc -l`
+         STATUS=`"{{ DXLOC }}/dx_get_js_snapshots" -format csv | grep REFRESH | wc -l|tr -d ' '`
          if [ "${STATUS}" != "1" ]; then
            exit 1;
          fi;
